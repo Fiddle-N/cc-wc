@@ -55,7 +55,11 @@ fn count_buf(buffer_details: BufferDetails) -> CountResult {
         summary: buffer_details.filename,
         ..Default::default()
     };
-    while buffer.read_until(b'\n', &mut line_buf).expect("read_until failed") != 0 {
+    while buffer
+        .read_until(b'\n', &mut line_buf)
+        .expect("read_until failed")
+        != 0
+    {
         count.lines += 1;
         count.bytes += line_buf.len() as u64;
 
@@ -100,12 +104,12 @@ fn format_summary(mut results: Vec<CountResult>, mut modes: Vec<Mode>) -> String
 
     let output_counts: Vec<Vec<u64>> = results
         .iter()
-        .map(
-            |result|  
-            modes.iter().map(
-                |mode| result.result_from_mode(mode)
-            ).collect()
-        )
+        .map(|result| {
+            modes
+                .iter()
+                .map(|mode| result.result_from_mode(mode))
+                .collect()
+        })
         .collect();
 
     let max_size = output_counts
@@ -115,39 +119,38 @@ fn format_summary(mut results: Vec<CountResult>, mut modes: Vec<Mode>) -> String
         .max()
         .expect("Max value guaranteed as vec is always populated");
 
-    let output_counts_fmtd = output_counts
-        .iter()
-        .map(
-            |counts| 
-            counts.iter().map(
-                |count | 
-                format!("{:>fill$}", count, fill = max_size)
-            ).collect::<Vec<_>>()
-        );
+    let output_counts_fmtd = output_counts.iter().map(|counts| {
+        counts
+            .iter()
+            .map(|count| format!("{:>fill$}", count, fill = max_size))
+            .collect::<Vec<_>>()
+    });
 
     let output_summary = output_counts_fmtd
         .zip(results)
-        .map( 
-            |(counts, results)| 
+        .map(|(counts, results)| {
             format!(
-                "{} {}", 
-                counts.join(" "), 
-                if let Some(summary) = results.summary { summary } else { "".into() }
+                "{} {}",
+                counts.join(" "),
+                if let Some(summary) = results.summary {
+                    summary
+                } else {
+                    "".into()
+                }
             )
-        )
+        })
         .collect::<Vec<_>>()
         .join("\n");
 
     output_summary
-
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
     let mut args = env::args();
-    args.next();     // ditch first arg, which is always process
+    args.next(); // ditch first arg, which is always process
 
     let mut modes: Vec<Mode> = vec![];
-    let mut filenames: Vec<String>= vec![];   // if no filename is found then read from stdin
+    let mut filenames: Vec<String> = vec![]; // if no filename is found then read from stdin
 
     for arg in args {
         let mode = Mode::from_str(&arg);
@@ -163,20 +166,26 @@ fn main() -> Result<(), Box<dyn Error>> {
     }
 
     let mut buffers: Vec<BufferDetails> = vec![];
-    
+
     if filenames.len() == 0 {
-        buffers.push(BufferDetails { filename: None, buffer: Box::new(std::io::stdin().lock()) })
-    }
-    else {
+        buffers.push(BufferDetails {
+            filename: None,
+            buffer: Box::new(std::io::stdin().lock()),
+        })
+    } else {
         for filename in filenames {
             let file = File::open(&filename)?;
-            buffers.push(BufferDetails { filename: Some(filename), buffer: Box::new(BufReader::new(file)) } )
+            buffers.push(BufferDetails {
+                filename: Some(filename),
+                buffer: Box::new(BufReader::new(file)),
+            })
         }
     };
 
-    let results: Vec<_> = buffers.into_iter().map(
-        |buffer| count_buf(buffer)
-    ).collect();
+    let results: Vec<_> = buffers
+        .into_iter()
+        .map(|buffer| count_buf(buffer))
+        .collect();
 
     let summary = format_summary(results, modes);
 
